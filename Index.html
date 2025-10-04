@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV España</title>
+
+  <!-- Video.js CDN -->
+  <link href="https://vjs.zencdn.net/8.5.2/video-js.css" rel="stylesheet" />
+  <script src="https://vjs.zencdn.net/8.5.2/video.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    header {
+      background: #111;
+      padding: 15px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #e50914;
+    }
+    #m3uInput {
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 5px;
+      padding: 8px;
+      width: 250px;
+    }
+    #loadBtn {
+      background: #e50914;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #player-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .video-js {
+      width: 80%;
+      max-width: 900px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .slider {
+      display: flex;
+      overflow-x: auto;
+      gap: 15px;
+      padding: 20px;
+      scroll-behavior: smooth;
+    }
+    .channel {
+      min-width: 100px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .channel:hover {
+      transform: scale(1.1);
+    }
+    .channel img {
+      width: 100px;
+      height: 60px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #111;
+    }
+    .channel p {
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    #epg {
+      margin: 30px auto;
+      text-align: center;
+      color: #bbb;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>TV España</h1>
+    <div>
+      <input id="m3uInput" type="text" placeholder="URL de lista M3U..." />
+      <button id="loadBtn">Cargar</button>
+    </div>
+  </header>
+
+  <div id="player-container">
+    <video id="videoPlayer" class="video-js vjs-big-play-centered" controls preload="auto" data-setup='{}'>
+      <source src="https://rtvelivestream.akamaized.net/rtvesec/La1_DVR.m3u8" type="application/x-mpegURL">
+    </video>
+  </div>
+
+  <div class="slider" id="channelSlider"></div>
+
+  <div id="epg">Guía EPG: Noticias en La 1 a las 14:00 · Deportes a las 15:00 · Cine a las 22:00</div>
+
+  <script>
+    const channels = [
+      { name: "La 1", logo: "https://upload.wikimedia.org/wikipedia/commons/5/5e/La_1.svg", url: "https://rtvelivestream.akamaized.net/rtvesec/La1_DVR.m3u8" },
+      { name: "La 2", logo: "https://upload.wikimedia.org/wikipedia/commons/5/5d/La_2.svg", url: "https://rtvelivestream.akamaized.net/rtvesec/La2_DVR.m3u8" },
+      { name: "24h", logo: "https://upload.wikimedia.org/wikipedia/commons/2/27/Canal_24_Horas_logo_2022.svg", url: "https://rtvelivestream.akamaized.net/rtvesec/24h_DVR.m3u8" },
+      { name: "Clan", logo: "https://upload.wikimedia.org/wikipedia/commons/5/55/Clan_TVE_logo.svg", url: "https://rtvelivestream.akamaized.net/rtvesec/Clan_DVR.m3u8" },
+      { name: "Antena 3", logo: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Antena_3_logo_2009.svg", url: "" },
+      { name: "Cuatro", logo: "https://upload.wikimedia.org/wikipedia/commons/f/f8/Cuatro_logo_2012.svg", url: "" },
+      { name: "Telecinco", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a7/Telecinco_2012.svg", url: "" },
+      { name: "La Sexta", logo: "https://upload.wikimedia.org/wikipedia/commons/9/96/LaSexta_logo_2016.svg", url: "" },
+      { name: "Boing", logo: "https://upload.wikimedia.org/wikipedia/commons/6/6c/Boing.svg", url: "" },
+      { name: "Atreseries", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a0/Atreseries_logo.svg", url: "" }
+    ];
+
+    const slider = document.getElementById("channelSlider");
+    const player = videojs("videoPlayer");
+
+    // Render canales
+    channels.forEach(ch => {
+      const div = document.createElement("div");
+      div.classList.add("channel");
+      div.innerHTML = `<img src="${ch.logo}" alt="${ch.name}"><p>${ch.name}</p>`;
+      div.onclick = () => {
+        if (ch.url) {
+          player.src({ src: ch.url, type: "application/x-mpegURL" });
+          document.getElementById("epg").innerText = `Guía EPG: Reproduciendo ${ch.name}`;
+        } else {
+          alert("Emisión no disponible actualmente.");
+        }
+      };
+      slider.appendChild(div);
+    });
+
+    // Cargar lista M3U desde URL
+    document.getElementById("loadBtn").onclick = async () => {
+      const url = document.getElementById("m3uInput").value.trim();
+      if (!url) return alert("Introduce una URL válida.");
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        const regex = /#EXTINF:-1.*?,(.*)\n(https?:\/\/[^\s]+)/g;
+        const matches = [...text.matchAll(regex)];
+        slider.innerHTML = "";
+        matches.forEach(m => {
+          const name = m[1];
+          const link = m[2];
+          const div = document.createElement("div");
+          div.classList.add("channel");
+          div.innerHTML = `<img src="https://via.placeholder.com/100x60?text=${encodeURIComponent(name)}"><p>${name}</p>`;
+          div.onclick = () => {
+            player.src({ src: link, type: "application/x-mpegURL" });
+            document.getElementById("epg").innerText = `Guía EPG: Reproduciendo ${name}`;
+          };
+          slider.appendChild(div);
+        });
+      } catch (err) {
+        alert("Error al cargar la lista M3U.");
+        console.error(err);
+      }
+    };
+  </script>
+</body>
+</html>
